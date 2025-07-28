@@ -5,6 +5,7 @@ import '../generated/assets.dart';
 import '../utils/common/app_colors.dart';
 import '../utils/common/app_text.dart';
 import '../utils/common/fast_modal_page_route.dart';
+import '../utils/common/popup_page_route.dart';
 import '../utils/common/image_view.dart';
 
 class ProviderHomeListItem extends StatefulWidget {
@@ -50,14 +51,13 @@ class _ProviderHomeListItemState extends State<ProviderHomeListItem> {
                 GestureDetector(
                   onTap: () {
                     Navigator.of(context).push(
-                      FastModalPageRoute(
-                        builder:
-                            (context) => PersonDetailScreen(
-                              index: widget.index ?? 0,
-                              images: widget.data?.data ?? [],
-                              initialImageIndex: 0,
-                              from: "home",
-                            ),
+                      PopUpPageRoute(
+                        builder: (context) => PersonDetailScreen(
+                          index: widget.index ?? 0,
+                          images: widget.data?.data ?? [],
+                          initialImageIndex: 0,
+                          from: "home",
+                        ),
                       ),
                     );
                   },
@@ -262,15 +262,14 @@ class _ProviderHomeListItemState extends State<ProviderHomeListItem> {
                   GestureDetector(
                     onTap: () {
                       Navigator.of(context).push(
-                        FastModalPageRoute(
-                          builder:
-                              (context) => PersonDetailScreen(
-                                index: widget.index ?? 0,
-                                imageGridIndex: imageIndex,
-                                images: item?.data ?? [],
-                                initialImageIndex: 0,
-                                from: "home",
-                              ),
+                        PopUpPageRoute(
+                          builder: (context) => PersonDetailScreen(
+                            index: widget.index ?? 0,
+                            imageGridIndex: imageIndex,
+                            images: item?.data ?? [],
+                            initialImageIndex: 0,
+                            from: "home",
+                          ),
                         ),
                       );
                     },
