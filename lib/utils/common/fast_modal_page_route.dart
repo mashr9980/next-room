@@ -104,3 +104,21 @@ class FadeModalRoute<T> extends MaterialWithModalsPageRoute<T> {
     );
   }
 }
+class PopupPageRoute<T> extends PageRouteBuilder<T> {
+  PopupPageRoute({required WidgetBuilder builder})
+      : super(
+          pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+          transitionDuration: const Duration(milliseconds: 300),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final curved = CurvedAnimation(parent: animation, curve: Curves.easeOut);
+            return FadeTransition(
+              opacity: curved,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
+                child: child,
+              ),
+            );
+          },
+        );
+}

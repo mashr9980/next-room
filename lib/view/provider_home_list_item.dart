@@ -50,7 +50,7 @@ class _ProviderHomeListItemState extends State<ProviderHomeListItem> {
                 GestureDetector(
                   onTap: () {
                     Navigator.of(context).push(
-                      FastModalPageRoute(
+                      PopupPageRoute(
                         builder:
                             (context) => PersonDetailScreen(
                               index: widget.index ?? 0,
@@ -262,7 +262,7 @@ class _ProviderHomeListItemState extends State<ProviderHomeListItem> {
                   GestureDetector(
                     onTap: () {
                       Navigator.of(context).push(
-                        FastModalPageRoute(
+                        PopupPageRoute(
                           builder:
                               (context) => PersonDetailScreen(
                                 index: widget.index ?? 0,

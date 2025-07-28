@@ -40,6 +40,9 @@ import '../utils/common/db_helper.dart';
 
   class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
+  double _lastHapticOffset = 0;
+  final double _hapticThreshold = 100;
+
   final currentPosition = 0.obs;
 
   final ScrollController scrollController = ScrollController();
@@ -57,6 +60,10 @@ import '../utils/common/db_helper.dart';
         if (isAppBarCollapsed.value) {
           isAppBarCollapsed.value = false;
         }
+      }
+      if (scrollController.position.userScrollDirection == ScrollDirection.reverse && scrollController.offset - _lastHapticOffset > _hapticThreshold) {
+        HapticFeedback.selectionClick();
+        _lastHapticOffset = scrollController.offset;
       }
     });
 
