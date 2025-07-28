@@ -65,14 +65,20 @@ import '../utils/common/db_helper.dart';
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      child: Hero(
-        tag:
-            widget.from == "fav"
-                ? "image_${widget.index}"
-                : "image_${widget.index}_${widget.imageGridIndex ?? 0}",
-        child: CommonScaffold(
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        if (details.delta.dy > 12) {
+          Navigator.of(context).maybePop();
+        }
+      },
+      child: Material(
+        color: Colors.white,
+        child: Hero(
+          tag:
+              widget.from == "fav"
+                  ? "image_${widget.index}"
+                  : "image_${widget.index}_${widget.imageGridIndex ?? 0}",
+          child: CommonScaffold(
           body: SafeArea(
             child: CustomScrollView(
               controller: scrollController,
