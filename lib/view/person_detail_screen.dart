@@ -14,7 +14,7 @@ import '../utils/common/app_button.dart';
 import '../utils/common/app_text.dart';
 import '../utils/common/db_helper.dart';
 
-  class PersonDetailScreen extends StatefulWidget {
+class PersonDetailScreen extends StatefulWidget {
   final int index;
   final int? imageGridIndex;
   final List<String> images;
@@ -38,29 +38,46 @@ import '../utils/common/db_helper.dart';
   State<PersonDetailScreen> createState() => _PersonDetailScreenState();
 }
 
-  class _PersonDetailScreenState extends State<PersonDetailScreen> {
-
+class _PersonDetailScreenState extends State<PersonDetailScreen> {
   final currentPosition = 0.obs;
-
   final ScrollController scrollController = ScrollController();
   final RxBool isAppBarCollapsed = false.obs;
+  double _lastScrollOffset = 0.0;
+  double _dragStartY = 0.0;
+  bool _isDragging = false;
 
   @override
   void initState() {
     super.initState();
-    scrollController.addListener(() {
-      if (scrollController.offset > (465 - kToolbarHeight)) {
-        if (!isAppBarCollapsed.value) {
-          isAppBarCollapsed.value = true;
-        }
-      } else {
-        if (isAppBarCollapsed.value) {
-          isAppBarCollapsed.value = false;
-        }
-      }
-    });
-
+    scrollController.addListener(_handleScroll);
     currentPosition.value = widget.initialImageIndex;
+  }
+
+  void _handleScroll() {
+    final currentOffset = scrollController.offset;
+    final offsetDifference = (currentOffset - _lastScrollOffset).abs();
+
+    if (offsetDifference > 10) {
+      HapticFeedback.selectionClick();
+      _lastScrollOffset = currentOffset;
+    }
+
+    if (scrollController.offset > (465 - kToolbarHeight)) {
+      if (!isAppBarCollapsed.value) {
+        isAppBarCollapsed.value = true;
+      }
+    } else {
+      if (isAppBarCollapsed.value) {
+        isAppBarCollapsed.value = false;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    scrollController.removeListener(_handleScroll);
+    scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -69,118 +86,142 @@ import '../utils/common/db_helper.dart';
       color: Colors.white,
       child: Hero(
         tag:
-            widget.from == "fav"
-                ? "image_${widget.index}"
-                : "image_${widget.index}_${widget.imageGridIndex ?? 0}",
-        child: CommonScaffold(
-          body: SafeArea(
-            child: CustomScrollView(
-              controller: scrollController,
-              slivers: [
-                SliverAppBar(
-                  expandedHeight: 465,
-                  pinned: true,
-                  collapsedHeight: 65,
-                  elevation: 2,
-                  backgroundColor: Colors.white,
-                  automaticallyImplyLeading: false,
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: Obx((){
-                      return isAppBarCollapsed.value
-                          ? _buildImageSlideshow()
-                          :
-                      GestureDetector(
-                        child: _buildImageSlideshow(),
-                      );
-                    })
+        widget.from == "fav"
+            ? "image_${widget.index}"
+            : "image_${widget.index}_${widget.imageGridIndex ?? 0}",
+        child: GestureDetector(
+          onPanStart: (details) {
+            if (scrollController.offset <= 50) {
+              _dragStartY = details.globalPosition.dy;
+              _isDragging = true;
+            }
+          },
+          onPanUpdate: (details) {
+            if (_isDragging) {
+              final dragDistance = details.globalPosition.dy - _dragStartY;
+              if (dragDistance > 80) {
+                HapticFeedback.lightImpact();
+                Get.back();
+                _isDragging = false;
+              }
+            }
+          },
+          onPanEnd: (details) {
+            _isDragging = false;
+          },
+          child: CommonScaffold(
+            body: SafeArea(
+              child: CustomScrollView(
+                controller: scrollController,
+                slivers: [
+                  SliverAppBar(
+                    expandedHeight: 465,
+                    pinned: true,
+                    collapsedHeight: 65,
+                    elevation: 2,
+                    backgroundColor: Colors.white,
+                    automaticallyImplyLeading: false,
+                    flexibleSpace: FlexibleSpaceBar(
+                        background: Obx((){
+                          return isAppBarCollapsed.value
+                              ? _buildImageSlideshow()
+                              :
+                          GestureDetector(
+                            child: _buildImageSlideshow(),
+                          );
+                        })
+                    ),
                   ),
-                ),
-                SliverList(
-                  delegate: SliverChildListDelegate([
-                    detail(),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Divider(height: 1, color: Colors.grey.shade400),
-                    ),
-                    ownerDetail(),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Divider(height: 1.5, color: Colors.grey.shade400),
-                    ),
-                    if (widget.from != "findRoom" &&
-                        (widget.from != "findRoomUser" ||
-                            widget.type != 1)) ...{
-                      const SizedBox(height: 15),
-                      upgradeToContact(),
-                    },
+                  SliverList(
+                    delegate: SliverChildListDelegate([
+                      detail(),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20.0),
+                        child: Divider(height: 1, color: Colors.grey.shade400),
+                      ),
+                      ownerDetail(),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20.0),
+                        child: Divider(height: 1.5, color: Colors.grey.shade400),
+                      ),
+                      if (widget.from != "findRoom" &&
+                          (widget.from != "findRoomUser" ||
+                              widget.type != 1)) ...{
+                        const SizedBox(height: 15),
+                        upgradeToContact(),
+                      },
 
-                    const SizedBox(height: 15),
-                    propertyDetails(),
-                    const SizedBox(height: 20),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Divider(height: 1, color: Colors.grey.shade400),
-                    ),
-                    const SizedBox(height: 20),
-                    description(),
-                    const SizedBox(height: 15),
-                    features(),
-                    const SizedBox(height: 15),
+                      const SizedBox(height: 15),
+                      propertyDetails(),
+                      const SizedBox(height: 20),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20.0),
+                        child: Divider(height: 1, color: Colors.grey.shade400),
+                      ),
+                      const SizedBox(height: 20),
+                      description(),
+                      const SizedBox(height: 15),
+                      features(),
+                      const SizedBox(height: 15),
                       AppButton(
                         margin: const EdgeInsets.symmetric(horizontal: 20),
                         text: "Message",
                         onTap: () {},
                       ),
-                    const SizedBox(height: 15),
-                  ]),
-                ),
-              ],
+                      const SizedBox(height: 15),
+                    ]),
+                  ),
+                ],
+              ),
             ),
-          ),
-          floatingActionButton: Padding(
-            padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GestureDetector(
-                  onTap: () => Get.back(),
-                  child: Container(
-                    padding: EdgeInsets.all(10),
-                    height: 42,
-                    width: 44,
-                    decoration: BoxDecoration(
-                      color: AppColor.black50,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Image.asset(
-                      Assets.iconsArrowLeft,
-                      fit: BoxFit.cover,
-                      color: Colors.white,
+            floatingActionButton: Padding(
+              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Get.back();
+                    },
+                    child: Container(
+                      padding: EdgeInsets.all(10),
+                      height: 42,
+                      width: 44,
+                      decoration: BoxDecoration(
+                        color: AppColor.black50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Image.asset(
+                        Assets.iconsArrowLeft,
+                        fit: BoxFit.cover,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-                if (widget.from == "findRoom") ...{
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    height: 42,
-                    width: 44,
-                    decoration: BoxDecoration(
-                      color: AppColor.black50,
-                      shape: BoxShape.circle,
+                  if (widget.from == "findRoom") ...{
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      height: 42,
+                      width: 44,
+                      decoration: BoxDecoration(
+                        color: AppColor.black50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Image.asset(
+                        Assets.iconsEditPreview,
+                        fit: BoxFit.cover,
+                        color: Colors.white,
+                      ),
                     ),
-                    child: Image.asset(
-                      Assets.iconsEditPreview,
-                      fit: BoxFit.cover,
-                      color: Colors.white,
-                    ),
-                  ),
-                } else ...{
-                  moreMenu(context),
-                },
-              ],
+                  } else ...{
+                    moreMenu(context),
+                  },
+                ],
+              ),
             ),
+            floatingActionButtonLocation: FloatingActionButtonLocation.centerTop,
           ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.centerTop,
         ),
       ),
     );
@@ -256,12 +297,9 @@ import '../utils/common/db_helper.dart';
         }).toList();
       },
       onSelected: (selectedValue) {
+        HapticFeedback.lightImpact();
         if (selectedValue == 'Report') {
-          // Navigator.of(context).push(
-          //   MaterialWithModalsPageRoute(builder: (context) => ReportScreen()),
-          // );
         } else {
-          // Delete logic
         }
       },
       child: Container(
@@ -292,21 +330,23 @@ import '../utils/common/db_helper.dart';
           width: double.infinity,
           autoPlayInterval: null,
           isLoop: false,
-          onPageChanged: (value) => currentPosition.value = value,
+          onPageChanged: (value) {
+            HapticFeedback.selectionClick();
+            currentPosition.value = value;
+          },
           children:
-              widget.images.asMap().entries.map((entry) {
-                // final idx = entry.key;
-                final imageUrl = entry.value;
-                return Material(
-                  type: MaterialType.transparency,
-                  child: ImageView.rect(
-                    width: double.infinity,
-                    height: double.infinity,
-                    image: imageUrl,
-                    fit: BoxFit.cover,
-                  ),
-                );
-              }).toList(),
+          widget.images.asMap().entries.map((entry) {
+            final imageUrl = entry.value;
+            return Material(
+              type: MaterialType.transparency,
+              child: ImageView.rect(
+                width: double.infinity,
+                height: double.infinity,
+                image: imageUrl,
+                fit: BoxFit.cover,
+              ),
+            );
+          }).toList(),
         ),
         Positioned(
           bottom: 10,
@@ -318,7 +358,7 @@ import '../utils/common/db_helper.dart';
               borderRadius: BorderRadius.circular(30),
             ),
             child: Obx(
-              () => AppText(
+                  () => AppText(
                 text: "${currentPosition.value + 1}/${widget.images.length}",
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -398,14 +438,17 @@ import '../utils/common/db_helper.dart';
                   ),
                 ],
               ),
-              Image.asset(Assets.iconsRoundUnlike, height: 38, width: 38),
+              GestureDetector(
+                onTap: () => HapticFeedback.lightImpact(),
+                child: Image.asset(Assets.iconsRoundUnlike, height: 38, width: 38),
+              ),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             spacing: 5,
             children: [
-             Image.asset(Assets.iconsFilledClock,height: 12,width: 12,),
+              Image.asset(Assets.iconsFilledClock,height: 12,width: 12,),
               AppText(
                 text: "Just listed",
                 textSize: 13,
@@ -430,15 +473,9 @@ import '../utils/common/db_helper.dart';
             children: [
               GestureDetector(
                 onTap: () {
+                  HapticFeedback.lightImpact();
                   if (widget.from != "findRoom" &&
                       (widget.from != "findRoomUser" || widget.type != 1)) {
-                    // showCupertinoModalBottomSheet(
-                    //   useRootNavigator: true,
-                    //   backgroundColor: Colors.white,
-                    //   overlayStyle: SystemUiOverlayStyle.light,
-                    //   context: context,
-                    //   builder: (context) => ViewProfileBottomSheet(type: 1, from: "personDetail",),
-                    // );
                   }
                 },
                 child: ClipOval(
@@ -513,27 +550,17 @@ import '../utils/common/db_helper.dart';
                       itemPadding: const EdgeInsets.symmetric(horizontal: 1.0),
                       itemBuilder:
                           (context, _) => Icon(
-                            Icons.star,
-                            color: CupertinoColors.systemYellow,
-                          ),
+                        Icons.star,
+                        color: CupertinoColors.systemYellow,
+                      ),
                       onRatingUpdate: (rating) {},
                     ),
                     GestureDetector(
                       onTap: () {
+                        HapticFeedback.lightImpact();
                         if (widget.from != "findRoom" &&
                             (widget.from != "findRoomUser" ||
                                 widget.type != 1)) {
-                          // showCupertinoModalBottomSheet(
-                          //   useRootNavigator: true,
-                          //   backgroundColor: Colors.white,
-                          //   overlayStyle: SystemUiOverlayStyle.light,
-                          //   context: context,
-                          //   builder:
-                          //       (context) => ShowAllReviewsBottomSheet(
-                          //         from: "personProfile",
-                          //         type:  widget.type == 1 ? 2 :1,
-                          //       ),
-                          // );
                         }
                       },
                       child: AppText(
@@ -587,7 +614,7 @@ import '../utils/common/db_helper.dart';
                 const SizedBox(height: 15),
                 AppText(
                   text:
-                      "This ad was posted less than 7 days ago. You'll need to upgrade",
+                  "This ad was posted less than 7 days ago. You'll need to upgrade",
                   fontWeight: FontWeight.w500,
                   textSize: 14,
                   textAlign: TextAlign.center,
@@ -596,6 +623,7 @@ import '../utils/common/db_helper.dart';
                 const SizedBox(height: 15),
                 GestureDetector(
                   onTap: () {
+                    HapticFeedback.lightImpact();
                     showCupertinoModalBottomSheet(
                       useRootNavigator: true,
                       backgroundColor: Colors.white,
@@ -655,11 +683,14 @@ import '../utils/common/db_helper.dart';
                 textSize: 18,
               ),
               if (widget.from == "findRoom" || widget.from == "Preview")
-                AppText(
-                  text: "Edit",
-                  color: AppColor.appColor,
-                  fontWeight: FontWeight.w500,
-                  textSize: 15,
+                GestureDetector(
+                  onTap: () => HapticFeedback.lightImpact(),
+                  child: AppText(
+                    text: "Edit",
+                    color: AppColor.appColor,
+                    fontWeight: FontWeight.w500,
+                    textSize: 15,
+                  ),
                 ),
             ],
           ),
@@ -724,11 +755,14 @@ import '../utils/common/db_helper.dart';
             children: [
               AppText(text: "Bio", fontWeight: FontWeight.w700, textSize: 18),
               if (widget.from == "findRoom" || widget.from == "Preview")
-                AppText(
-                  text: "Edit",
-                  color: AppColor.appColor,
-                  fontWeight: FontWeight.w500,
-                  textSize: 15,
+                GestureDetector(
+                  onTap: () => HapticFeedback.lightImpact(),
+                  child: AppText(
+                    text: "Edit",
+                    color: AppColor.appColor,
+                    fontWeight: FontWeight.w500,
+                    textSize: 15,
+                  ),
                 ),
             ],
           ),
@@ -745,13 +779,16 @@ import '../utils/common/db_helper.dart';
                   fontWeight: FontWeight.w400,
                   maxLines: showMore.value ? null : 8,
                   overflow:
-                      showMore.value
-                          ? TextOverflow.visible
-                          : TextOverflow.ellipsis,
+                  showMore.value
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
                 ),
-                if (descriptionText.length > 300) // optional condition
+                if (descriptionText.length > 300)
                   GestureDetector(
-                    onTap: () => showMore.toggle(),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      showMore.toggle();
+                    },
                     child: Container(
                       width: double.infinity,
                       margin: EdgeInsets.symmetric(vertical: 18),
@@ -800,11 +837,14 @@ import '../utils/common/db_helper.dart';
                 textSize: 18,
               ),
               if (widget.from == "findRoom" || widget.from == "Preview")
-                AppText(
-                  text: "Edit",
-                  color: AppColor.appColor,
-                  fontWeight: FontWeight.w500,
-                  textSize: 15,
+                GestureDetector(
+                  onTap: () => HapticFeedback.lightImpact(),
+                  child: AppText(
+                    text: "Edit",
+                    color: AppColor.appColor,
+                    fontWeight: FontWeight.w500,
+                    textSize: 15,
+                  ),
                 ),
             ],
           ),
@@ -813,31 +853,31 @@ import '../utils/common/db_helper.dart';
         Wrap(
           spacing: 14.0,
           children:
-              interests.map((interest) {
-                return FilterChip(
-                  label: AppText(
-                    text: interest,
-                    fontWeight: FontWeight.w500,
-                    textSize: 14,
-                  ),
-                  selected: false, // Change based on your selection logic
-                  onSelected: (selected) {
-                    // Handle selection/deselection
-                    debugPrint(
-                      '$interest ${selected ? 'selected' : 'deselected'}',
-                    );
-                  },
-                  backgroundColor: Colors.grey.shade300,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 10,
-                  ),
+          interests.map((interest) {
+            return FilterChip(
+              label: AppText(
+                text: interest,
+                fontWeight: FontWeight.w500,
+                textSize: 14,
+              ),
+              selected: false,
+              onSelected: (selected) {
+                HapticFeedback.lightImpact();
+                debugPrint(
+                  '$interest ${selected ? 'selected' : 'deselected'}',
                 );
-              }).toList(),
+              },
+              backgroundColor: Colors.grey.shade300,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 10,
+              ),
+            );
+          }).toList(),
         ),
       ],
     );
