@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:nextroom8_animation/view/person_detail_screen.dart';
 import '../generated/assets.dart';
 import '../utils/common/app_colors.dart';
@@ -17,111 +17,18 @@ class ProviderHomeListItem extends StatefulWidget {
   State<ProviderHomeListItem> createState() => _ProviderHomeListItemState();
 }
 
-class _ProviderHomeListItemState extends State<ProviderHomeListItem> with TickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _slideAnimation;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 350),
-      vsync: this,
-    );
-
-    _slideAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-
-    _fadeAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.8,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  void _navigateToDetail(List<String> images, int imageIndex) {
-    HapticFeedback.lightImpact();
-    _animationController.forward();
-
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => PersonDetailScreen(
-          index: widget.index ?? 0,
-          imageGridIndex: imageIndex,
-          images: images,
-          initialImageIndex: 0,
-          from: "home",
-        ),
-        transitionDuration: const Duration(milliseconds: 350),
-        reverseTransitionDuration: const Duration(milliseconds: 300),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final slideAnimation = Tween<Offset>(
-            begin: const Offset(0.0, 1.0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOut,
-          ));
-
-          final scaleAnimation = Tween<double>(
-            begin: 0.95,
-            end: 1.0,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOut,
-          ));
-
-          return SlideTransition(
-            position: slideAnimation,
-            child: ScaleTransition(
-              scale: scaleAnimation,
-              child: child,
-            ),
-          );
-        },
-        opaque: false,
-      ),
-    ).then((_) {
-      _animationController.reverse();
-    });
-  }
-
+class _ProviderHomeListItemState extends State<ProviderHomeListItem> {
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animationController,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: 1.0 - (_slideAnimation.value * 0.05),
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: Container(
-              color: CupertinoColors.white,
-              child: Column(
-                children: [
-                  widget.data?.isPremium == 1
-                      ? premiumSeekers(context)
-                      : seekers(context),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+    return Container(
+      color: CupertinoColors.white,
+      child: Column(
+        children: [
+          widget.data?.isPremium == 1
+              ? premiumSeekers(context)
+              : seekers(context),
+        ],
+      ),
     );
   }
 
@@ -141,7 +48,18 @@ class _ProviderHomeListItemState extends State<ProviderHomeListItem> with Ticker
             Stack(
               children: [
                 GestureDetector(
-                  onTap: () => _navigateToDetail(widget.data?.data ?? [], 0),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialWithModalsPageRoute(
+                        builder: (context) => PersonDetailScreen(
+                          index: widget.index ?? 0,
+                          images: widget.data?.data ?? [],
+                          initialImageIndex: 0,
+                          from: "home",
+                        ),
+                      ),
+                    );
+                  },
                   child: ImageView.rect(
                     height: 330,
                     image: widget.data?.data[0] ?? "",
@@ -341,7 +259,19 @@ class _ProviderHomeListItemState extends State<ProviderHomeListItem> with Ticker
                 clipBehavior: Clip.none,
                 children: [
                   GestureDetector(
-                    onTap: () => _navigateToDetail(item?.data ?? [], imageIndex),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialWithModalsPageRoute(
+                          builder: (context) => PersonDetailScreen(
+                            index: widget.index ?? 0,
+                            imageGridIndex: imageIndex,
+                            images: item?.data ?? [],
+                            initialImageIndex: 0,
+                            from: "home",
+                          ),
+                        ),
+                      );
+                    },
                     child: ImageView.rect(
                       height: 130,
                       width: double.infinity,

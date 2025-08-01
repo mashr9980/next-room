@@ -38,46 +38,126 @@ class PersonDetailScreen extends StatefulWidget {
   State<PersonDetailScreen> createState() => _PersonDetailScreenState();
 }
 
-class _PersonDetailScreenState extends State<PersonDetailScreen> {
+class _PersonDetailScreenState extends State<PersonDetailScreen>
+    with TickerProviderStateMixin {
   final currentPosition = 0.obs;
   final ScrollController scrollController = ScrollController();
   final RxBool isAppBarCollapsed = false.obs;
-  double _lastScrollOffset = 0.0;
-  double _dragStartY = 0.0;
+
+  late AnimationController _pullDownController;
+  late AnimationController _enterController;
+  late Animation<double> _pullDownAnimation;
+  late Animation<double> _enterAnimation;
+  late Animation<double> _scaleAnimation;
+  double _dragDistance = 0.0;
   bool _isDragging = false;
+  static const double _dismissThreshold = 120.0;
 
   @override
   void initState() {
     super.initState();
-    scrollController.addListener(_handleScroll);
+
+    _pullDownController = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+
+    _enterController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+
+    _pullDownAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _pullDownController,
+      curve: Curves.easeInOut,
+    ));
+
+    _enterAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _enterController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _scaleAnimation = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _enterController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    scrollController.addListener(() {
+      if (scrollController.offset > (465 - kToolbarHeight)) {
+        if (!isAppBarCollapsed.value) {
+          isAppBarCollapsed.value = true;
+        }
+      } else {
+        if (isAppBarCollapsed.value) {
+          isAppBarCollapsed.value = false;
+        }
+      }
+    });
+
     currentPosition.value = widget.initialImageIndex;
-  }
 
-  void _handleScroll() {
-    final currentOffset = scrollController.offset;
-    final offsetDifference = (currentOffset - _lastScrollOffset).abs();
-
-    if (offsetDifference > 10) {
-      HapticFeedback.selectionClick();
-      _lastScrollOffset = currentOffset;
-    }
-
-    if (scrollController.offset > (465 - kToolbarHeight)) {
-      if (!isAppBarCollapsed.value) {
-        isAppBarCollapsed.value = true;
-      }
-    } else {
-      if (isAppBarCollapsed.value) {
-        isAppBarCollapsed.value = false;
-      }
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _enterController.forward();
+    });
   }
 
   @override
   void dispose() {
-    scrollController.removeListener(_handleScroll);
+    _pullDownController.dispose();
+    _enterController.dispose();
     scrollController.dispose();
     super.dispose();
+  }
+
+  void _handlePanStart(DragStartDetails details) {
+    if (scrollController.offset <= 0) {
+      _isDragging = true;
+      _dragDistance = 0.0;
+      HapticFeedback.selectionClick();
+    }
+  }
+
+  void _handlePanUpdate(DragUpdateDetails details) {
+    if (_isDragging && details.delta.dy > 0) {
+      setState(() {
+        _dragDistance += details.delta.dy;
+        _dragDistance = _dragDistance.clamp(0.0, _dismissThreshold * 2.5);
+      });
+
+      if (_dragDistance > 30 && _dragDistance < 35) {
+        HapticFeedback.lightImpact();
+      }
+
+      if (_dragDistance > _dismissThreshold * 0.8) {
+        HapticFeedback.mediumImpact();
+      }
+    }
+  }
+
+  void _handlePanEnd(DragEndDetails details) {
+    if (_isDragging) {
+      if (_dragDistance > _dismissThreshold || details.velocity.pixelsPerSecond.dy > 300) {
+        HapticFeedback.mediumImpact();
+        _pullDownController.forward().then((_) {
+          Navigator.of(context).pop();
+        });
+      } else {
+        HapticFeedback.lightImpact();
+        setState(() {
+          _dragDistance = 0.0;
+        });
+      }
+      _isDragging = false;
+    }
   }
 
   @override
@@ -85,143 +165,146 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     return Material(
       color: Colors.white,
       child: Hero(
-        tag:
-        widget.from == "fav"
+        tag: widget.from == "fav"
             ? "image_${widget.index}"
             : "image_${widget.index}_${widget.imageGridIndex ?? 0}",
-        child: GestureDetector(
-          onPanStart: (details) {
-            if (scrollController.offset <= 50) {
-              _dragStartY = details.globalPosition.dy;
-              _isDragging = true;
-            }
-          },
-          onPanUpdate: (details) {
-            if (_isDragging) {
-              final dragDistance = details.globalPosition.dy - _dragStartY;
-              if (dragDistance > 80) {
-                HapticFeedback.lightImpact();
-                Get.back();
-                _isDragging = false;
-              }
-            }
-          },
-          onPanEnd: (details) {
-            _isDragging = false;
-          },
-          child: CommonScaffold(
-            body: SafeArea(
-              child: CustomScrollView(
-                controller: scrollController,
-                slivers: [
-                  SliverAppBar(
-                    expandedHeight: 465,
-                    pinned: true,
-                    collapsedHeight: 65,
-                    elevation: 2,
-                    backgroundColor: Colors.white,
-                    automaticallyImplyLeading: false,
-                    flexibleSpace: FlexibleSpaceBar(
-                        background: Obx((){
-                          return isAppBarCollapsed.value
-                              ? _buildImageSlideshow()
-                              :
-                          GestureDetector(
-                            child: _buildImageSlideshow(),
-                          );
-                        })
-                    ),
-                  ),
-                  SliverList(
-                    delegate: SliverChildListDelegate([
-                      detail(),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20.0),
-                        child: Divider(height: 1, color: Colors.grey.shade400),
-                      ),
-                      ownerDetail(),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20.0),
-                        child: Divider(height: 1.5, color: Colors.grey.shade400),
-                      ),
-                      if (widget.from != "findRoom" &&
-                          (widget.from != "findRoomUser" ||
-                              widget.type != 1)) ...{
-                        const SizedBox(height: 15),
-                        upgradeToContact(),
-                      },
+        child: AnimatedBuilder(
+          animation: Listenable.merge([_enterAnimation, _pullDownAnimation]),
+          builder: (context, child) {
+            double enterScale = _scaleAnimation.value;
+            double enterOpacity = _enterAnimation.value;
 
-                      const SizedBox(height: 15),
-                      propertyDetails(),
-                      const SizedBox(height: 20),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20.0),
-                        child: Divider(height: 1, color: Colors.grey.shade400),
+            double pullScale = 1.0 - (_pullDownAnimation.value * 0.15);
+            double pullTranslateY = _dragDistance + (_pullDownAnimation.value * MediaQuery.of(context).size.height);
+
+            double finalScale = enterScale * pullScale;
+            double finalOpacity = enterOpacity * (1.0 - _pullDownAnimation.value * 0.3);
+
+            return Opacity(
+              opacity: finalOpacity,
+              child: Transform.translate(
+                offset: Offset(0, pullTranslateY),
+                child: Transform.scale(
+                  scale: finalScale,
+                  child: GestureDetector(
+                    onPanStart: _handlePanStart,
+                    onPanUpdate: _handlePanUpdate,
+                    onPanEnd: _handlePanEnd,
+                    child: CommonScaffold(
+                      body: SafeArea(
+                        child: CustomScrollView(
+                          controller: scrollController,
+                          physics: _isDragging
+                              ? const NeverScrollableScrollPhysics()
+                              : const BouncingScrollPhysics(),
+                          slivers: [
+                            SliverAppBar(
+                              expandedHeight: 465,
+                              pinned: true,
+                              collapsedHeight: 65,
+                              elevation: 2,
+                              backgroundColor: Colors.white,
+                              automaticallyImplyLeading: false,
+                              flexibleSpace: FlexibleSpaceBar(
+                                background: Obx(() {
+                                  return isAppBarCollapsed.value
+                                      ? _buildImageSlideshow()
+                                      : GestureDetector(
+                                    child: _buildImageSlideshow(),
+                                  );
+                                }),
+                              ),
+                            ),
+                            SliverList(
+                              delegate: SliverChildListDelegate([
+                                detail(),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 20.0),
+                                  child: Divider(height: 1, color: Colors.grey.shade400),
+                                ),
+                                ownerDetail(),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 20.0),
+                                  child: Divider(height: 1.5, color: Colors.grey.shade400),
+                                ),
+                                if (widget.from != "findRoom" &&
+                                    (widget.from != "findRoomUser" || widget.type != 1)) ...{
+                                  const SizedBox(height: 15),
+                                  upgradeToContact(),
+                                },
+                                const SizedBox(height: 15),
+                                propertyDetails(),
+                                const SizedBox(height: 20),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 20.0),
+                                  child: Divider(height: 1, color: Colors.grey.shade400),
+                                ),
+                                const SizedBox(height: 20),
+                                description(),
+                                const SizedBox(height: 15),
+                                features(),
+                                const SizedBox(height: 15),
+                                AppButton(
+                                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                                  text: "Message",
+                                  onTap: () {},
+                                ),
+                                const SizedBox(height: 15),
+                              ]),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 20),
-                      description(),
-                      const SizedBox(height: 15),
-                      features(),
-                      const SizedBox(height: 15),
-                      AppButton(
-                        margin: const EdgeInsets.symmetric(horizontal: 20),
-                        text: "Message",
-                        onTap: () {},
+                      floatingActionButton: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            GestureDetector(
+                              onTap: () => Navigator.of(context).pop(),
+                              child: Container(
+                                padding: EdgeInsets.all(10),
+                                height: 42,
+                                width: 44,
+                                decoration: BoxDecoration(
+                                  color: AppColor.black50,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Image.asset(
+                                  Assets.iconsArrowLeft,
+                                  fit: BoxFit.cover,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            if (widget.from == "findRoom") ...{
+                              Container(
+                                padding: EdgeInsets.all(12),
+                                height: 42,
+                                width: 44,
+                                decoration: BoxDecoration(
+                                  color: AppColor.black50,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Image.asset(
+                                  Assets.iconsEditPreview,
+                                  fit: BoxFit.cover,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            } else ...{
+                              moreMenu(context),
+                            },
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 15),
-                    ]),
-                  ),
-                ],
-              ),
-            ),
-            floatingActionButton: Padding(
-              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      Get.back();
-                    },
-                    child: Container(
-                      padding: EdgeInsets.all(10),
-                      height: 42,
-                      width: 44,
-                      decoration: BoxDecoration(
-                        color: AppColor.black50,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Image.asset(
-                        Assets.iconsArrowLeft,
-                        fit: BoxFit.cover,
-                        color: Colors.white,
-                      ),
+                      floatingActionButtonLocation: FloatingActionButtonLocation.centerTop,
                     ),
                   ),
-                  if (widget.from == "findRoom") ...{
-                    Container(
-                      padding: EdgeInsets.all(12),
-                      height: 42,
-                      width: 44,
-                      decoration: BoxDecoration(
-                        color: AppColor.black50,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Image.asset(
-                        Assets.iconsEditPreview,
-                        fit: BoxFit.cover,
-                        color: Colors.white,
-                      ),
-                    ),
-                  } else ...{
-                    moreMenu(context),
-                  },
-                ],
+                ),
               ),
-            ),
-            floatingActionButtonLocation: FloatingActionButtonLocation.centerTop,
-          ),
+            );
+          },
         ),
       ),
     );
@@ -238,7 +321,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       itemBuilder: (context) {
         final List<Map<String, String>> menuItems = [];
         menuItems.addAll([
-          if (widget.type == 1 && widget.isFlagged == true ) ...[
+          if (widget.type == 1 && widget.isFlagged == true) ...[
             {'text': 'Edit', 'icon': Assets.iconsPencil},
             {'text': 'Delete', 'icon': Assets.iconsDelete},
           ] else if (widget.from == "findRoomUser") ...[
@@ -297,7 +380,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         }).toList();
       },
       onSelected: (selectedValue) {
-        HapticFeedback.lightImpact();
         if (selectedValue == 'Report') {
         } else {
         }
@@ -330,12 +412,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           width: double.infinity,
           autoPlayInterval: null,
           isLoop: false,
-          onPageChanged: (value) {
-            HapticFeedback.selectionClick();
-            currentPosition.value = value;
-          },
-          children:
-          widget.images.asMap().entries.map((entry) {
+          onPageChanged: (value) => currentPosition.value = value,
+          children: widget.images.asMap().entries.map((entry) {
             final imageUrl = entry.value;
             return Material(
               type: MaterialType.transparency,
@@ -438,17 +516,14 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   ),
                 ],
               ),
-              GestureDetector(
-                onTap: () => HapticFeedback.lightImpact(),
-                child: Image.asset(Assets.iconsRoundUnlike, height: 38, width: 38),
-              ),
+              Image.asset(Assets.iconsRoundUnlike, height: 38, width: 38),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             spacing: 5,
             children: [
-              Image.asset(Assets.iconsFilledClock,height: 12,width: 12,),
+              Image.asset(Assets.iconsFilledClock, height: 12, width: 12),
               AppText(
                 text: "Just listed",
                 textSize: 13,
@@ -473,7 +548,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             children: [
               GestureDetector(
                 onTap: () {
-                  HapticFeedback.lightImpact();
                   if (widget.from != "findRoom" &&
                       (widget.from != "findRoomUser" || widget.type != 1)) {
                   }
@@ -548,8 +622,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       itemCount: 5,
                       itemSize: 16,
                       itemPadding: const EdgeInsets.symmetric(horizontal: 1.0),
-                      itemBuilder:
-                          (context, _) => Icon(
+                      itemBuilder: (context, _) => Icon(
                         Icons.star,
                         color: CupertinoColors.systemYellow,
                       ),
@@ -557,10 +630,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        HapticFeedback.lightImpact();
                         if (widget.from != "findRoom" &&
-                            (widget.from != "findRoomUser" ||
-                                widget.type != 1)) {
+                            (widget.from != "findRoomUser" || widget.type != 1)) {
                         }
                       },
                       child: AppText(
@@ -613,8 +684,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 ),
                 const SizedBox(height: 15),
                 AppText(
-                  text:
-                  "This ad was posted less than 7 days ago. You'll need to upgrade",
+                  text: "This ad was posted less than 7 days ago. You'll need to upgrade",
                   fontWeight: FontWeight.w500,
                   textSize: 14,
                   textAlign: TextAlign.center,
@@ -623,7 +693,6 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 const SizedBox(height: 15),
                 GestureDetector(
                   onTap: () {
-                    HapticFeedback.lightImpact();
                     showCupertinoModalBottomSheet(
                       useRootNavigator: true,
                       backgroundColor: Colors.white,
@@ -683,14 +752,11 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 textSize: 18,
               ),
               if (widget.from == "findRoom" || widget.from == "Preview")
-                GestureDetector(
-                  onTap: () => HapticFeedback.lightImpact(),
-                  child: AppText(
-                    text: "Edit",
-                    color: AppColor.appColor,
-                    fontWeight: FontWeight.w500,
-                    textSize: 15,
-                  ),
+                AppText(
+                  text: "Edit",
+                  color: AppColor.appColor,
+                  fontWeight: FontWeight.w500,
+                  textSize: 15,
                 ),
             ],
           ),
@@ -719,8 +785,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       ),
                     ],
                   ),
-                  if (index < propertyInfo.length - 1)
-                    const SizedBox(height: 15),
+                  if (index < propertyInfo.length - 1) const SizedBox(height: 15),
                 ],
               );
             },
@@ -755,14 +820,11 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             children: [
               AppText(text: "Bio", fontWeight: FontWeight.w700, textSize: 18),
               if (widget.from == "findRoom" || widget.from == "Preview")
-                GestureDetector(
-                  onTap: () => HapticFeedback.lightImpact(),
-                  child: AppText(
-                    text: "Edit",
-                    color: AppColor.appColor,
-                    fontWeight: FontWeight.w500,
-                    textSize: 15,
-                  ),
+                AppText(
+                  text: "Edit",
+                  color: AppColor.appColor,
+                  fontWeight: FontWeight.w500,
+                  textSize: 15,
                 ),
             ],
           ),
@@ -778,17 +840,13 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   color: AppColor.textBlack,
                   fontWeight: FontWeight.w400,
                   maxLines: showMore.value ? null : 8,
-                  overflow:
-                  showMore.value
+                  overflow: showMore.value
                       ? TextOverflow.visible
                       : TextOverflow.ellipsis,
                 ),
                 if (descriptionText.length > 300)
                   GestureDetector(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      showMore.toggle();
-                    },
+                    onTap: () => showMore.toggle(),
                     child: Container(
                       width: double.infinity,
                       margin: EdgeInsets.symmetric(vertical: 18),
@@ -837,14 +895,11 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                 textSize: 18,
               ),
               if (widget.from == "findRoom" || widget.from == "Preview")
-                GestureDetector(
-                  onTap: () => HapticFeedback.lightImpact(),
-                  child: AppText(
-                    text: "Edit",
-                    color: AppColor.appColor,
-                    fontWeight: FontWeight.w500,
-                    textSize: 15,
-                  ),
+                AppText(
+                  text: "Edit",
+                  color: AppColor.appColor,
+                  fontWeight: FontWeight.w500,
+                  textSize: 15,
                 ),
             ],
           ),
@@ -852,8 +907,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         const SizedBox(height: 10),
         Wrap(
           spacing: 14.0,
-          children:
-          interests.map((interest) {
+          children: interests.map((interest) {
             return FilterChip(
               label: AppText(
                 text: interest,
@@ -862,10 +916,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               ),
               selected: false,
               onSelected: (selected) {
-                HapticFeedback.lightImpact();
-                debugPrint(
-                  '$interest ${selected ? 'selected' : 'deselected'}',
-                );
+                debugPrint('$interest ${selected ? 'selected' : 'deselected'}');
               },
               backgroundColor: Colors.grey.shade300,
               shape: RoundedRectangleBorder(
@@ -882,5 +933,4 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       ],
     );
   }
-
 }
