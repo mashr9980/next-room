@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:nextroom8_animation/view/home_screen.dart';
+import 'package:nextroom8_animation/view/main_screen.dart';
 
 void main() async {
   await GetStorage.init();
@@ -48,7 +48,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
           title: 'NextRoom8',
-          home: HomeScreen(),
+          home: MainScreen(),
         ),
       ),
     );
