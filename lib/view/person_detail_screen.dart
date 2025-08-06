@@ -65,15 +65,17 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: Colors.transparent,
       child: Hero(
-        tag:
-        widget.from == "fav"
+        tag: widget.from == "fav"
             ? "image_${widget.index}"
             : "image_${widget.index}_${widget.imageGridIndex ?? 0}",
         child: BlurDismissibleWidget(
-          child: CommonScaffold(
-            body: SafeArea(
+          child: ClipRRect(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            child: CommonScaffold(
+              backgroundColor: Colors.white,
+              body: SafeArea(
               child: CustomScrollView(
                 controller: scrollController,
                 slivers: [

@@ -12,7 +12,7 @@ class BlurDismissibleWidget extends StatefulWidget {
     super.key,
     required this.child,
     this.onDismiss,
-    this.dismissThreshold = 100.0,
+    this.dismissThreshold = 80.0,
     this.enableDismiss = true,
   });
 
@@ -33,7 +33,7 @@ class _BlurDismissibleWidgetState extends State<BlurDismissibleWidget>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       vsync: this,
     );
 
@@ -41,7 +41,7 @@ class _BlurDismissibleWidgetState extends State<BlurDismissibleWidget>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
-    _blurAnimation = Tween<double>(begin: 0.0, end: 8.0).animate(
+    _blurAnimation = Tween<double>(begin: 0.0, end: 6.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
   }
@@ -99,19 +99,17 @@ class _BlurDismissibleWidgetState extends State<BlurDismissibleWidget>
                     sigmaY: _blurAnimation.value,
                   ),
                   child: Container(
-                    color: Colors.black.withOpacity(0.1 * _animation.value),
+                    color: Colors.black.withOpacity(0.5 * _animation.value),
                   ),
                 ),
               ),
             Transform.translate(
               offset: Offset(0, _dragDistance),
-              child: Transform.scale(
-                scale: 1.0 - (0.1 * _animation.value),
-                child: GestureDetector(
-                  onPanUpdate: _handlePanUpdate,
-                  onPanEnd: _handlePanEnd,
-                  child: widget.child,
-                ),
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onPanUpdate: _handlePanUpdate,
+                onPanEnd: _handlePanEnd,
+                child: widget.child,
               ),
             ),
           ],
@@ -218,7 +216,7 @@ class _BlurDismissibleBottomSheetState extends State<BlurDismissibleBottomSheet>
                     sigmaY: _blurAnimation.value,
                   ),
                   child: Container(
-                    color: Colors.black.withOpacity(0.15 * _animation.value),
+                    color: Colors.black.withOpacity(0.5 * _animation.value),
                   ),
                 ),
               ),
