@@ -689,6 +689,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         "when it comes to securing a permanent address in a busy"
         "when it comes to securing a permanent address in a busy"
         "when it comes to securing a permanent address in a busy"
+        "when it comes to securing a permanent address in a busy"
         " city like Dhaka.";
 
     return Padding(
