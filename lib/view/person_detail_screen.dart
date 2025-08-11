@@ -6,6 +6,7 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:get/get.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:nextroom8_animation/view/premium_bottom_sheet.dart';
+import 'package:nextroom8_animation/view/home_screen.dart';
 import '../../utils/common/app_colors.dart';
 import '../../utils/common/common_scaffold.dart';
 import '../../utils/common/image_view.dart';
@@ -72,10 +73,13 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             ? "image_${widget.index}"
             : "image_${widget.index}_${widget.imageGridIndex ?? 0}",
         child: BlurDismissibleWidget(
+          scrollController: scrollController,
+          backgroundWidget: HomeScreen(), // Pass the home screen as background
           child: CommonScaffold(
             body: SafeArea(
               child: CustomScrollView(
                 controller: scrollController,
+                physics: ClampingScrollPhysics(), // Changed to prevent bounce
                 slivers: [
                   SliverAppBar(
                     expandedHeight: 465,

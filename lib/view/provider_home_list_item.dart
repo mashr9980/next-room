@@ -1,11 +1,63 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:nextroom8_animation/view/person_detail_screen.dart';
+import 'package:nextroom8_animation/view/home_screen.dart';
 import '../generated/assets.dart';
 import '../utils/common/app_colors.dart';
 import '../utils/common/app_text.dart';
 import '../utils/common/image_view.dart';
+
+// Enhanced Page Route for blur background effect
+class BlurPageRoute<T> extends PageRoute<T> {
+  final Widget child;
+  final Widget? backgroundWidget;
+
+  BlurPageRoute({
+    required this.child,
+    this.backgroundWidget,
+    RouteSettings? settings,
+  }) : super(settings: settings);
+
+  @override
+  bool get opaque => false;
+
+  @override
+  bool get barrierDismissible => false;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  bool get maintainState => true;
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+
+  @override
+  Widget buildPage(
+      BuildContext context,
+      Animation<double> animation,
+      Animation<double> secondaryAnimation,
+      ) {
+    return child;
+  }
+
+  @override
+  Widget buildTransitions(
+      BuildContext context,
+      Animation<double> animation,
+      Animation<double> secondaryAnimation,
+      Widget child,
+      ) {
+    return child;
+  }
+}
 
 class ProviderHomeListItem extends StatefulWidget {
   final int? index;
@@ -49,14 +101,16 @@ class _ProviderHomeListItemState extends State<ProviderHomeListItem> {
               children: [
                 GestureDetector(
                   onTap: () {
+                    // Enhanced navigation with background context
                     Navigator.of(context).push(
-                      MaterialWithModalsPageRoute(
-                        builder: (context) => PersonDetailScreen(
+                      BlurPageRoute(
+                        child: PersonDetailScreen(
                           index: widget.index ?? 0,
                           images: widget.data?.data ?? [],
                           initialImageIndex: 0,
                           from: "home",
                         ),
+                        backgroundWidget: HomeScreen(),
                       ),
                     );
                   },
@@ -260,15 +314,18 @@ class _ProviderHomeListItemState extends State<ProviderHomeListItem> {
                 children: [
                   GestureDetector(
                     onTap: () {
+                      // Updated navigation without animation
                       Navigator.of(context).push(
-                        MaterialWithModalsPageRoute(
-                          builder: (context) => PersonDetailScreen(
+                        PageRouteBuilder(
+                          pageBuilder: (context, animation, secondaryAnimation) => PersonDetailScreen(
                             index: widget.index ?? 0,
                             imageGridIndex: imageIndex,
                             images: item?.data ?? [],
                             initialImageIndex: 0,
                             from: "home",
                           ),
+                          transitionDuration: Duration.zero,
+                          reverseTransitionDuration: Duration.zero,
                         ),
                       );
                     },

@@ -7,6 +7,8 @@ class BlurDismissibleWidget extends StatefulWidget {
   final VoidCallback? onDismiss;
   final double dismissThreshold;
   final bool enableDismiss;
+  final ScrollController? scrollController;
+  final Widget? backgroundWidget; // New parameter for showing background
 
   const BlurDismissibleWidget({
     super.key,
@@ -14,6 +16,8 @@ class BlurDismissibleWidget extends StatefulWidget {
     this.onDismiss,
     this.dismissThreshold = 100.0,
     this.enableDismiss = true,
+    this.scrollController,
+    this.backgroundWidget,
   });
 
   @override
@@ -25,9 +29,11 @@ class _BlurDismissibleWidgetState extends State<BlurDismissibleWidget>
   late AnimationController _animationController;
   late Animation<double> _animation;
   late Animation<double> _blurAnimation;
+  late Animation<double> _scaleAnimation;
 
   double _dragDistance = 0.0;
   bool _isDragging = false;
+  bool _canDismiss = true;
 
   @override
   void initState() {
@@ -41,20 +47,44 @@ class _BlurDismissibleWidgetState extends State<BlurDismissibleWidget>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
-    _blurAnimation = Tween<double>(begin: 0.0, end: 8.0).animate(
+    _blurAnimation = Tween<double>(begin: 0.0, end: 15.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    // Listen to scroll controller if provided
+    if (widget.scrollController != null) {
+      widget.scrollController!.addListener(_onScrollChanged);
+    }
+  }
+
+  void _onScrollChanged() {
+    // Only allow dismiss when at the top of the scroll view
+    _canDismiss = widget.scrollController!.offset <= 0;
   }
 
   @override
   void dispose() {
+    if (widget.scrollController != null) {
+      widget.scrollController!.removeListener(_onScrollChanged);
+    }
     _animationController.dispose();
     super.dispose();
   }
 
-  void _handlePanUpdate(DragUpdateDetails details) {
-    if (!widget.enableDismiss) return;
+  void _handlePanStart(DragStartDetails details) {
+    if (!widget.enableDismiss || !_canDismiss) return;
+    _isDragging = false;
+    _dragDistance = 0.0;
+  }
 
+  void _handlePanUpdate(DragUpdateDetails details) {
+    if (!widget.enableDismiss || !_canDismiss) return;
+
+    // Only handle downward drags
     if (details.delta.dy > 0) {
       setState(() {
         _dragDistance += details.delta.dy;
@@ -67,7 +97,7 @@ class _BlurDismissibleWidgetState extends State<BlurDismissibleWidget>
   }
 
   void _handlePanEnd(DragEndDetails details) {
-    if (!widget.enableDismiss) return;
+    if (!widget.enableDismiss || !_canDismiss) return;
 
     if (_dragDistance > widget.dismissThreshold) {
       _animationController.forward().then((_) {
@@ -91,7 +121,17 @@ class _BlurDismissibleWidgetState extends State<BlurDismissibleWidget>
       builder: (context, child) {
         return Stack(
           children: [
-            if (_isDragging || _animationController.value > 0)
+            // Background widget (home screen) that becomes visible when dragging
+            if (widget.backgroundWidget != null && (_isDragging || _animationController.value > 0))
+              Positioned.fill(
+                child: Transform.scale(
+                  scale: _scaleAnimation.value,
+                  child: widget.backgroundWidget!,
+                ),
+              ),
+
+            // Blur overlay over background
+            if (widget.backgroundWidget != null && (_isDragging || _animationController.value > 0))
               Positioned.fill(
                 child: BackdropFilter(
                   filter: ImageFilter.blur(
@@ -99,18 +139,24 @@ class _BlurDismissibleWidgetState extends State<BlurDismissibleWidget>
                     sigmaY: _blurAnimation.value,
                   ),
                   child: Container(
-                    color: Colors.black.withOpacity(0.1 * _animation.value),
+                    color: Colors.black.withOpacity(0.1 * (1 - _animation.value)),
                   ),
                 ),
               ),
+
+            // Main content (person detail screen)
             Transform.translate(
               offset: Offset(0, _dragDistance),
               child: Transform.scale(
                 scale: 1.0 - (0.1 * _animation.value),
-                child: GestureDetector(
-                  onPanUpdate: _handlePanUpdate,
-                  onPanEnd: _handlePanEnd,
-                  child: widget.child,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20 * _animation.value),
+                  child: GestureDetector(
+                    onPanStart: _handlePanStart,
+                    onPanUpdate: _handlePanUpdate,
+                    onPanEnd: _handlePanEnd,
+                    child: widget.child,
+                  ),
                 ),
               ),
             ),
